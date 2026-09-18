@@ -5,7 +5,7 @@ Branch: studio-worlds/production-artifact-2026-09-05
 
 ## World Matrix
 
-- That’s My Lingo ⭐️ — Vegas / premium neon casino studio
+- That’s My Lingo — Vegas / premium neon casino studio
 - Lingo Legacy — Cinematic HQ / industrial noir
 - Kotton’s Code — animated cartoon universe
 - Lingo Travel™ — global travel command center
@@ -70,3 +70,7 @@ No inferred CI pass. No implicit deployment authorization. No bypass of provider
 ## Current Execution Note
 
 AppDeploy deployment capacity is currently constrained. This artifact is therefore the authoritative implementation handoff for alternate GitHub/CI/CD execution. It does not represent a production deployment by itself.
+
+## Verification Trigger
+
+This update intentionally changes only this staging-branch documentation file so the existing production-gate workflow executes on GitHub. It does not modify production DNS, Cloudflare, AppDeploy production routing, or the protected LKG.
