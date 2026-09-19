@@ -7,13 +7,14 @@ on:
   pull_request:
     branches:
       - main
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
   evidence:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-22.04
     env:
       ACTIONS_RUNNER_DEBUG: 'true'
       ACTIONS_STEP_DEBUG: 'true'
@@ -41,6 +42,6 @@ jobs:
   promotion:
     needs: evidence
     if: ${{ false }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-22.04
     steps:
       - run: echo 'Promotion requires a separately verified production authorization path.'
