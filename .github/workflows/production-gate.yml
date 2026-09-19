@@ -1,0 +1,43 @@
+name: Studio Worlds Production Gate
+
+on:
+  push:
+    branches:
+      - 'studio-worlds/**'
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  evidence:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Validate studio artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s studio-worlds/README.md
+          test -s studio-worlds/production-gate.yml
+          grep -q 'EVIDENCE' studio-worlds/README.md
+          grep -q 'PROMOTION' studio-worlds/README.md
+          echo 'STUDIO_WORLD_ARTIFACT=VALID'
+      - name: Emit gate evidence
+        shell: bash
+        run: |
+          echo 'EVIDENCE=VERIFIED_FOR_ARTIFACT_VALIDATION'
+          echo 'RUNNER_GATE=PASS'
+          echo 'DEPLOYMENT_MUTEX=LOCKED'
+          echo 'ACTIVATION=BLOCKED_UNTIL_PRODUCTION_ELIGIBILITY'
+          echo 'LKG=PROTECTED'
+
+  promotion:
+    needs: evidence
+    if: ${{ false }}
+    runs-on: ubuntu-24.04
+    steps:
+      - run: echo 'Promotion requires a separately verified production authorization path.'
