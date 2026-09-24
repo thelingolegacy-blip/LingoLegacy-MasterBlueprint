@@ -2,9 +2,6 @@ name: Crazy Weasol — Runner Isolation Matrix
 
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - '.github/workflows/crazy-weasol-runner-isolation.yml'
 
 permissions:
   contents: read
@@ -51,5 +48,3 @@ jobs:
           name: cw-b01-runner-probe-${{ matrix.runner }}
           path: evidence/
           if-no-files-found: error
-
-# diagnostic retrigger: 2026-09-24T01:xx:xxZ
