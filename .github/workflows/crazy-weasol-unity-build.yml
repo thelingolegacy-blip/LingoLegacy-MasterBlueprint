@@ -1,0 +1,51 @@
+name: Crazy Weasol — Unity Build-01 Evidence
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'crazy-weasol/UnityProject/**'
+      - '.github/workflows/crazy-weasol-unity-build.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  unity-build:
+    name: Unity batchmode build and tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Verify Unity project root
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f crazy-weasol/UnityProject/ProjectSettings/ProjectVersion.txt
+          test -f crazy-weasol/UnityProject/Packages/manifest.json
+          test -f crazy-weasol/UnityProject/Assets/Scenes/CW_B01_GnarlLabs.unity
+          test -f crazy-weasol/UnityProject/Assets/CrazyWeasol/Core/Runtime/GameBootstrap.cs
+      - name: Build and test with Unity
+        uses: game-ci/unity-builder@v4
+        env:
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+          UNITY_SERIAL: ${{ secrets.UNITY_SERIAL }}
+        with:
+          projectPath: crazy-weasol/UnityProject
+          unityVersion: 2022.3.50f1
+          targetPlatform: StandaloneLinux64
+          customParameters: -batchmode -nographics -quit -executeMethod CrazyWeasol.Editor.BuildScript.PerformBuild -logFile -
+      - name: Verify build artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f build/CrazyWeasol-CW-B01.x86_64
+          sha256sum build/CrazyWeasol-CW-B01.x86_64
+      - name: Upload Unity build evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: crazy-weasol-cw-b01-linux-build
+          path: build/**
+          if-no-files-found: error

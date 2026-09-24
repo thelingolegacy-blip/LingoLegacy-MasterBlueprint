@@ -1,0 +1,51 @@
+name: Crazy Weasol — Runner Allocation Sentinel
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'crazy-weasol/UnityProject/**'
+      - '.github/workflows/crazy-weasol-runner-sentinel.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  runner-sentinel:
+    name: G02 runner allocation sentinel
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Generate live runner sentinel
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          {
+            echo "CW-B01-RUNNER-SENTINEL"
+            echo "run_id: ${GITHUB_RUN_ID}"
+            echo "run_attempt: ${GITHUB_RUN_ATTEMPT}"
+            echo "job_id: ${GITHUB_JOB:-unknown}"
+            echo "runner_name: $RUNNER_NAME"
+            echo "runner_os: $RUNNER_OS"
+            echo "runner_arch: $RUNNER_ARCH"
+            echo "hostname: $(hostname)"
+            echo "workspace: $GITHUB_WORKSPACE"
+            echo "timestamp_utc: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "git_sha: ${GITHUB_SHA}"
+            echo "sentinel: EXECUTED"
+            echo "exit_code: 0"
+          } | tee evidence/CW-B01-RUNNER-SENTINEL.txt
+      - name: Hash sentinel
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha256sum evidence/CW-B01-RUNNER-SENTINEL.txt | tee evidence/CW-B01-RUNNER-SENTINEL.sha256
+      - name: Upload live sentinel evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: crazy-weasol-g02-live-runner-sentinel
+          path: evidence/
+          if-no-files-found: error

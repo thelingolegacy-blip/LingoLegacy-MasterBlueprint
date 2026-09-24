@@ -1,0 +1,58 @@
+name: Crazy Weasol — Runner Isolation Matrix
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/crazy-weasol-runner-isolation.yml'
+  push:
+    paths:
+      - '.github/workflows/crazy-weasol-runner-isolation.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    name: Runner probe
+    strategy:
+      fail-fast: false
+      matrix:
+        runner:
+          - ubuntu-latest
+          - ubuntu-24.04
+          - windows-latest
+          - macos-14
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 10
+    steps:
+      - name: Runner allocation sentinel
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          {
+            echo "CW-B01-RUNNER-ISOLATION"
+            echo "run_id: ${GITHUB_RUN_ID}"
+            echo "run_attempt: ${GITHUB_RUN_ATTEMPT}"
+            echo "job_id: ${GITHUB_JOB}"
+            echo "runner_name: ${RUNNER_NAME}"
+            echo "runner_id: ${RUNNER_ID}"
+            echo "runner_os: ${RUNNER_OS}"
+            echo "runner_arch: ${RUNNER_ARCH}"
+            echo "runner_group: ${RUNNER_GROUP}"
+            echo "hostname: $(hostname)"
+            echo "timestamp_utc: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "git_sha: ${GITHUB_SHA}"
+            echo "sentinel: EXECUTED"
+            echo "exit_code: 0"
+          } | tee evidence/runner-sentinel.txt
+          sha256sum evidence/runner-sentinel.txt | tee evidence/runner-sentinel.sha256
+      - name: Upload probe evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: cw-b01-runner-probe-${{ matrix.runner }}
+          path: evidence/
+          if-no-files-found: error
+
+# diagnostic retrigger: PR-triggered execution path
