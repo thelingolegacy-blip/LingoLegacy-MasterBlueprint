@@ -2,6 +2,9 @@ name: Crazy Weasol — G02 Acceptance Sentinel
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/crazy-weasol-g02-acceptance.yml'
   pull_request:
     paths:
       - '.github/workflows/crazy-weasol-g02-acceptance.yml'
@@ -12,7 +15,6 @@ permissions:
 jobs:
   g02-acceptance:
     name: G02 live telemetry acceptance sentinel
-    # Configuration target only. This does not constitute runner evidence.
     runs-on: [self-hosted, linux, x64, lingo-g02]
     timeout-minutes: 10
     steps:
@@ -49,12 +51,7 @@ jobs:
           import hashlib, json, os
           p="evidence/g02-sentinel.txt"
           b=open(p,"rb").read()
-          payload={
-            "run_id":os.environ["GITHUB_RUN_ID"],
-            "sentinel_version":"1.0.0",
-            "sentinel_log_sha256":hashlib.sha256(b).hexdigest(),
-            "status":"SUCCESS"
-          }
+          payload={"run_id":os.environ["GITHUB_RUN_ID"],"sentinel_version":"1.0.0","sentinel_log_sha256":hashlib.sha256(b).hexdigest(),"status":"SUCCESS"}
           open("evidence/g02-payload.json","w").write(json.dumps(payload,sort_keys=True,indent=2)+"\n")
           PY
 
