@@ -2,6 +2,9 @@ name: Crazy Weasol — Runner Isolation Matrix
 
 on:
   workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/crazy-weasol-runner-isolation.yml'
   push:
     paths:
       - '.github/workflows/crazy-weasol-runner-isolation.yml'
@@ -52,4 +55,4 @@ jobs:
           path: evidence/
           if-no-files-found: error
 
-# diagnostic retrigger: 2026-09-24T01:xx:xxZ
+# diagnostic retrigger: PR-triggered execution path
