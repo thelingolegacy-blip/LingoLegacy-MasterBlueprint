@@ -51,3 +51,5 @@ jobs:
           name: cw-b01-runner-probe-${{ matrix.runner }}
           path: evidence/
           if-no-files-found: error
+
+# diagnostic retrigger: 2026-09-24T01:xx:xxZ
