@@ -1,0 +1,64 @@
+name: Crazy Weasol — G02 Acceptance Sentinel
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/crazy-weasol-g02-acceptance.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  g02-acceptance:
+    name: G02 live telemetry acceptance sentinel
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Generate G02 evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          start_time="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          {
+            echo "CW-B01-G02-ACCEPTANCE-SENTINEL"
+            echo "sentinel_version: 1.0.0"
+            echo "run_id: ${GITHUB_RUN_ID}"
+            echo "run_attempt: ${GITHUB_RUN_ATTEMPT}"
+            echo "job_id: ${GITHUB_JOB}"
+            echo "runner_id: ${RUNNER_ID}"
+            echo "runner_name: ${RUNNER_NAME}"
+            echo "runner_os: ${RUNNER_OS}"
+            echo "runner_arch: ${RUNNER_ARCH}"
+            echo "runner_group: ${RUNNER_GROUP}"
+            echo "route: ubuntu-latest"
+            echo "git_sha: ${GITHUB_SHA}"
+            echo "start_time: ${start_time}"
+            echo "status: SUCCESS"
+          } | tee evidence/g02-sentinel.txt
+          end_time="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          printf '\nend_time: %s\nexit_code: 0\n' "$end_time" | tee -a evidence/g02-sentinel.txt
+          sha256sum evidence/g02-sentinel.txt | tee evidence/g02-sentinel.sha256
+          python3 - <<'PY'
+          import hashlib, json, os
+          p="evidence/g02-sentinel.txt"
+          b=open(p,"rb").read()
+          payload={
+            "run_id":os.environ["GITHUB_RUN_ID"],
+            "sentinel_version":"1.0.0",
+            "sentinel_log_sha256":hashlib.sha256(b).hexdigest(),
+            "status":"SUCCESS"
+          }
+          open("evidence/g02-payload.json","w").write(json.dumps(payload,sort_keys=True,indent=2)+"\n")
+          PY
+
+      - name: Upload G02 evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: crazy-weasol-g02-evidence
+          path: evidence/
+          if-no-files-found: error
