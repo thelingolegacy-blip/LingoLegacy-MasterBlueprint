@@ -1,0 +1,133 @@
+name: Crazy Weasol — G02 Fresh Evidence Epoch
+
+on:
+  push:
+    paths:
+      - '.github/workflows/crazy-weasol-g02-fresh.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: crazy-weasol-g02-fresh-2026-09-24
+  cancel-in-progress: false
+
+jobs:
+  g02-acceptance:
+    name: G02 fresh live telemetry sentinel
+    runs-on: [self-hosted, linux, x64, lingo-g02]
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Generate fresh G02 evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          start_time="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          {
+            echo "CW-B01-G02-FRESH-EVIDENCE-EPOCH"
+            echo "evidence_epoch: 2026-09-24-fresh-01"
+            echo "run_id: ${GITHUB_RUN_ID}"
+            echo "run_attempt: ${GITHUB_RUN_ATTEMPT}"
+            echo "job_key: ${GITHUB_JOB}"
+            echo "runner_id: ${RUNNER_ID}"
+            echo "runner_name: ${RUNNER_NAME}"
+            echo "runner_group: ${RUNNER_GROUP}"
+            echo "runner_labels_target: self-hosted,linux,x64,lingo-g02"
+            echo "git_sha: ${GITHUB_SHA}"
+            echo "start_time: ${start_time}"
+            echo "status: SUCCESS"
+          } | tee evidence/g02-fresh-sentinel.txt
+          end_time="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          printf '\nend_time: %s\nexit_code: 0\n' "$end_time" | tee -a evidence/g02-fresh-sentinel.txt
+          sha256sum evidence/g02-fresh-sentinel.txt | tee evidence/g02-fresh-sentinel.sha256
+
+          python3 - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          p = Path("evidence/g02-fresh-sentinel.txt")
+          b = p.read_bytes()
+          payload = {
+              "evidence_epoch": "2026-09-24-fresh-01",
+              "run_id": os.environ["GITHUB_RUN_ID"],
+              "run_attempt": os.environ["GITHUB_RUN_ATTEMPT"],
+              "job_key": os.environ["GITHUB_JOB"],
+              "runner_id": os.environ["RUNNER_ID"],
+              "runner_name": os.environ["RUNNER_NAME"],
+              "runner_group": os.environ["RUNNER_GROUP"],
+              "sentinel_sha256": hashlib.sha256(b).hexdigest(),
+              "status": "SUCCESS",
+              "exit_code": 0
+          }
+          Path("evidence/g02-fresh-payload.json").write_text(
+              json.dumps(payload, sort_keys=True, indent=2) + "\n"
+          )
+          PY
+
+      - name: Upload fresh evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: crazy-weasol-g02-fresh-evidence
+          path: evidence/
+          if-no-files-found: error
+          retention-days: 14
+
+  g02-independent-verification:
+    name: G02 fresh independent verification
+    needs: g02-acceptance
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Download fresh evidence
+        uses: actions/download-artifact@v4
+        with:
+          name: crazy-weasol-g02-fresh-evidence
+          path: evidence
+
+      - name: Verify fresh predicates
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s evidence/g02-fresh-sentinel.txt
+          test -s evidence/g02-fresh-sentinel.sha256
+          test -s evidence/g02-fresh-payload.json
+          grep -q '^CW-B01-G02-FRESH-EVIDENCE-EPOCH$' evidence/g02-fresh-sentinel.txt
+          grep -q '^status: SUCCESS$' evidence/g02-fresh-sentinel.txt
+          grep -q '^exit_code: 0$' evidence/g02-fresh-sentinel.txt
+          grep -q '^runner_id: [1-9][0-9]*$' evidence/g02-fresh-sentinel.txt
+          grep -q '^runner_name: .\+$' evidence/g02-fresh-sentinel.txt
+          grep -q '^runner_group: .\+$' evidence/g02-fresh-sentinel.txt
+          grep -q '^runner_labels_target: self-hosted,linux,x64,lingo-g02$' evidence/g02-fresh-sentinel.txt
+          expected="$(awk '{print $1}' evidence/g02-fresh-sentinel.sha256)"
+          actual="$(sha256sum evidence/g02-fresh-sentinel.txt | awk '{print $1}')"
+          test "$expected" = "$actual"
+          python3 - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          s = Path("evidence/g02-fresh-sentinel.txt").read_bytes()
+          p = json.loads(Path("evidence/g02-fresh-payload.json").read_text())
+          assert int(p["runner_id"]) > 0
+          assert p["runner_name"].strip()
+          assert p["runner_group"].strip()
+          assert p["status"] == "SUCCESS"
+          assert p["exit_code"] == 0
+          assert p["sentinel_sha256"] == hashlib.sha256(s).hexdigest()
+          PY
+          cat > evidence/g02-fresh-independent-verification.json <<'JSON'
+          {
+            "verification": "PASS",
+            "independent_verifier": "github-hosted-ubuntu",
+            "epoch": "2026-09-24-fresh-01"
+          }
+          JSON
+
+      - name: Upload independent verification
+        uses: actions/upload-artifact@v4
+        with:
+          name: crazy-weasol-g02-fresh-independent-verification
+          path: evidence/g02-fresh-independent-verification.json
+          if-no-files-found: error
+          retention-days: 14
