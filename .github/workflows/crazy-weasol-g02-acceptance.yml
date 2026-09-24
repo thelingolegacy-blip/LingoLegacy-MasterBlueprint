@@ -5,12 +5,12 @@ on:
   push:
     paths:
       - '.github/workflows/crazy-weasol-g02-acceptance.yml'
-  pull_request:
-    paths:
-      - '.github/workflows/crazy-weasol-g02-acceptance.yml'
-
 permissions:
   contents: read
+
+concurrency:
+  group: crazy-weasol-g02-acceptance
+  cancel-in-progress: false
 
 jobs:
   g02-acceptance:
