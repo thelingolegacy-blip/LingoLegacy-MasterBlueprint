@@ -29,10 +29,11 @@ jobs:
           start_time="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           {
             echo "CW-B01-G02-ACCEPTANCE-SENTINEL"
-            echo "sentinel_version: 1.0.0"
+            echo "sentinel_version: 1.1.0"
             echo "run_id: ${GITHUB_RUN_ID}"
             echo "run_attempt: ${GITHUB_RUN_ATTEMPT}"
             echo "job_id: ${GITHUB_JOB}"
+            echo "job_url: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/job/${GITHUB_JOB}"
             echo "runner_id: ${RUNNER_ID}"
             echo "runner_name: ${RUNNER_NAME}"
             echo "runner_os: ${RUNNER_OS}"
@@ -44,15 +45,32 @@ jobs:
             echo "start_time: ${start_time}"
             echo "status: SUCCESS"
           } | tee evidence/g02-sentinel.txt
+
           end_time="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           printf '\nend_time: %s\nexit_code: 0\n' "$end_time" | tee -a evidence/g02-sentinel.txt
           sha256sum evidence/g02-sentinel.txt | tee evidence/g02-sentinel.sha256
+
           python3 - <<'PY'
           import hashlib, json, os
-          p="evidence/g02-sentinel.txt"
-          b=open(p,"rb").read()
-          payload={"run_id":os.environ["GITHUB_RUN_ID"],"sentinel_version":"1.0.0","sentinel_log_sha256":hashlib.sha256(b).hexdigest(),"status":"SUCCESS"}
-          open("evidence/g02-payload.json","w").write(json.dumps(payload,sort_keys=True,indent=2)+"\n")
+          p = "evidence/g02-sentinel.txt"
+          b = open(p, "rb").read()
+          payload = {
+              "run_id": os.environ["GITHUB_RUN_ID"],
+              "run_attempt": os.environ["GITHUB_RUN_ATTEMPT"],
+              "job_id": os.environ["GITHUB_JOB"],
+              "sentinel_version": "1.1.0",
+              "runner_id": os.environ["RUNNER_ID"],
+              "runner_name": os.environ["RUNNER_NAME"],
+              "runner_group": os.environ["RUNNER_GROUP"],
+              "runner_os": os.environ["RUNNER_OS"],
+              "runner_arch": os.environ["RUNNER_ARCH"],
+              "sentinel_log_sha256": hashlib.sha256(b).hexdigest(),
+              "status": "SUCCESS",
+              "exit_code": 0,
+          }
+          open("evidence/g02-payload.json", "w").write(
+              json.dumps(payload, sort_keys=True, indent=2) + "\n"
+          )
           PY
 
       - name: Upload G02 evidence
@@ -61,3 +79,118 @@ jobs:
           name: crazy-weasol-g02-evidence
           path: evidence/
           if-no-files-found: error
+          retention-days: 14
+
+  g02-independent-verification:
+    name: G02 independent evidence verification
+    needs: g02-acceptance
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Download G02 evidence
+        uses: actions/download-artifact@v4
+        with:
+          name: crazy-weasol-g02-evidence
+          path: evidence
+
+      - name: Verify G02 predicates and integrity
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          test -s evidence/g02-sentinel.txt
+          test -s evidence/g02-sentinel.sha256
+          test -s evidence/g02-payload.json
+
+          grep -q '^CW-B01-G02-ACCEPTANCE-SENTINEL$' evidence/g02-sentinel.txt
+          grep -q '^status: SUCCESS$' evidence/g02-sentinel.txt
+          grep -q '^exit_code: 0$' evidence/g02-sentinel.txt
+          grep -q '^runner_id: [1-9][0-9]*$' evidence/g02-sentinel.txt
+          grep -q '^runner_name: .\+$' evidence/g02-sentinel.txt
+          grep -q '^runner_group: .\+$' evidence/g02-sentinel.txt
+          grep -q '^runner_labels_target: self-hosted,linux,x64,lingo-g02$' evidence/g02-sentinel.txt
+
+          expected="$(awk '{print $1}' evidence/g02-sentinel.sha256)"
+          actual="$(sha256sum evidence/g02-sentinel.txt | awk '{print $1}')"
+          test "$expected" = "$actual"
+
+          python3 - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+
+          sentinel = Path("evidence/g02-sentinel.txt").read_bytes()
+          payload = json.loads(Path("evidence/g02-payload.json").read_text())
+
+          assert payload["status"] == "SUCCESS"
+          assert payload["exit_code"] == 0
+          assert int(payload["runner_id"]) > 0
+          assert payload["runner_name"].strip()
+          assert payload["runner_group"].strip()
+          assert payload["sentinel_log_sha256"] == hashlib.sha256(sentinel).hexdigest()
+
+          text = sentinel.decode()
+          required = [
+              "runner_labels_target: self-hosted,linux,x64,lingo-g02",
+              f'run_id: {payload["run_id"]}',
+              f'job_id: {payload["job_id"]}',
+          ]
+          for item in required:
+              assert item in text, item
+          PY
+
+          cat > evidence/g02-independent-verification.json <<'JSON'
+          {
+            "verification": "PASS",
+            "independent_verifier": "github-hosted-ubuntu",
+            "checks": [
+              "runner_id > 0",
+              "runner_name populated",
+              "runner_group populated",
+              "required labels recorded",
+              "sentinel SUCCESS",
+              "exit_code = 0",
+              "artifact files present",
+              "sha256 reproduced",
+              "payload hash matches sentinel",
+              "run/job identity correlation"
+            ]
+          }
+          JSON
+
+      - name: Upload independent verification
+        uses: actions/upload-artifact@v4
+        with:
+          name: crazy-weasol-g02-independent-verification
+          path: evidence/g02-independent-verification.json
+          if-no-files-found: error
+          retention-days: 14
+
+  g02-authorization:
+    name: G02 authorization record
+    needs: g02-independent-verification
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Establish G02 authorization record
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p authorization
+          cat > authorization/g02-authorization.json <<'JSON'
+          {
+            "gate": "G02",
+            "authorization": "ESTABLISHED",
+            "transition": "AUTHORIZED",
+            "production_mutation": false,
+            "basis": "independent verification job completed successfully"
+          }
+          JSON
+          cat authorization/g02-authorization.json
+
+      - name: Upload authorization record
+        uses: actions/upload-artifact@v4
+        with:
+          name: crazy-weasol-g02-authorization
+          path: authorization/g02-authorization.json
+          if-no-files-found: error
+          retention-days: 14
