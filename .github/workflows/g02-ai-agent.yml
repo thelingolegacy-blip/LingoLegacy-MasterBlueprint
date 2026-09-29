@@ -17,22 +17,27 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
       - name: Execute G02 agent
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        shell: bash
+        shell: python
         run: |
-          if [ "${RUNNER_OS}" = "Windows" ]; then
-            python .github/lingo-g02-agent/g02_agent.py
-          else
-            python3 .github/lingo-g02-agent/g02_agent.py
-          fi
+          import subprocess
+          import sys
+          subprocess.run(
+              [sys.executable, ".github/lingo-g02-agent/g02_agent.py"],
+              check=True,
+          )
+
       - name: G02 sentinel
-        shell: bash
+        shell: python
         run: |
-          echo "G02_SENTINEL_EXECUTED=true"
-          echo "RUNNER_NAME=$RUNNER_NAME"
-          echo "RUNNER_ID=$RUNNER_ID"
-          echo "RUNNER_OS=$RUNNER_OS"
-          echo "RUN_ID=$GITHUB_RUN_ID"
-          echo "JOB_ID=$GITHUB_JOB"
+          import os
+
+          print("G02_SENTINEL_EXECUTED=true")
+          print(f"RUNNER_NAME={os.environ.get('RUNNER_NAME', '')}")
+          print(f"RUNNER_ID={os.environ.get('RUNNER_ID', '')}")
+          print(f"RUNNER_OS={os.environ.get('RUNNER_OS', '')}")
+          print(f"RUN_ID={os.environ.get('GITHUB_RUN_ID', '')}")
+          print(f"JOB_ID={os.environ.get('GITHUB_JOB', '')}")
