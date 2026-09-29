@@ -1,0 +1,27 @@
+name: G02 PR Runner Sentinel
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  linux:
+    runs-on: [self-hosted, linux, x64]
+    steps:
+      - name: Linux execution sentinel
+        run: |
+          echo "G02_LINUX_SENTINEL_EXECUTED=true"
+          echo "RUNNER_NAME=$RUNNER_NAME"
+          echo "RUNNER_ID=$RUNNER_ID"
+          uname -a
+
+  windows:
+    runs-on: [self-hosted, windows, x64]
+    steps:
+      - name: Windows execution sentinel
+        shell: pwsh
+        run: |
+          Write-Output "G02_WINDOWS_SENTINEL_EXECUTED=true"
+          Write-Output "RUNNER_NAME=$env:RUNNER_NAME"
+          Write-Output "RUNNER_ID=$env:RUNNER_ID"
+          Get-ComputerInfo | Select-Object WindowsProductName, WindowsVersion
