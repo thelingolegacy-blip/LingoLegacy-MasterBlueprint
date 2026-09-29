@@ -1,0 +1,50 @@
+name: G02 AI Agent — Machine Listening & Execution Evidence
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [g02-ai-agent-20260929]
+
+permissions:
+  contents: read
+  actions: read
+  checks: read
+
+jobs:
+  linux:
+    name: G02 Linux Agent
+    runs-on: [self-hosted, linux, x64]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Execute G02 agent
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 .github/lingo-g02-agent/g02_agent.py
+      - name: Linux sentinel
+        run: |
+          echo "G02_LINUX_SENTINEL_EXECUTED=true"
+          echo "RUNNER_NAME=$RUNNER_NAME"
+          echo "RUNNER_ID=$RUNNER_ID"
+          echo "RUN_ID=$GITHUB_RUN_ID"
+          echo "JOB_ID=$GITHUB_JOB"
+
+  windows:
+    name: G02 Windows Agent
+    runs-on: [self-hosted, windows, x64]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Execute G02 agent
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: python .github/lingo-g02-agent/g02_agent.py
+      - name: Windows sentinel
+        shell: pwsh
+        run: |
+          "G02_WINDOWS_SENTINEL_EXECUTED=true"
+          "RUNNER_NAME=$env:RUNNER_NAME"
+          "RUNNER_ID=$env:RUNNER_ID"
+          "RUN_ID=$env:GITHUB_RUN_ID"
+          "JOB_ID=$env:GITHUB_JOB"
