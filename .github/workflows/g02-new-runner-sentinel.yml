@@ -1,0 +1,54 @@
+name: G02 New Runner Connectivity Sentinel
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sentinel:
+    name: New G02 Runner Sentinel
+    runs-on: [self-hosted, lingo-g02]
+    timeout-minutes: 10
+    steps:
+      - name: Runner identity
+        shell: python
+        run: |
+          import os, platform
+          print("G02_NEW_RUNNER_SENTINEL=true")
+          print("RUNNER_NAME=" + os.environ.get("RUNNER_NAME",""))
+          print("RUNNER_ID=" + os.environ.get("RUNNER_ID",""))
+          print("RUNNER_OS=" + os.environ.get("RUNNER_OS",""))
+          print("RUNNER_ARCH=" + os.environ.get("RUNNER_ARCH",""))
+          print("RUN_ID=" + os.environ.get("GITHUB_RUN_ID",""))
+          print("JOB=" + os.environ.get("GITHUB_JOB",""))
+          print("HOST_OS=" + platform.system())
+
+      - name: Connectivity proof
+        shell: python
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          import json, os, urllib.request
+          repo = os.environ["GITHUB_REPOSITORY"]
+          run_id = os.environ["GITHUB_RUN_ID"]
+          req = urllib.request.Request(
+              f"https://api.github.com/repos/{repo}/actions/runs/{run_id}/jobs",
+              headers={
+                  "Accept": "application/vnd.github+json",
+                  "Authorization": f"Bearer {os.environ['GITHUB_TOKEN']}",
+                  "X-GitHub-Api-Version": "2022-11-28",
+              },
+          )
+          with urllib.request.urlopen(req, timeout=20) as r:
+              data = json.load(r)
+          for job in data.get("jobs", []):
+              print(json.dumps({
+                  "job_id": job.get("id"),
+                  "name": job.get("name"),
+                  "status": job.get("status"),
+                  "runner_id": job.get("runner_id"),
+                  "runner_name": job.get("runner_name"),
+                  "steps_count": len(job.get("steps") or []),
+              }, sort_keys=True))
