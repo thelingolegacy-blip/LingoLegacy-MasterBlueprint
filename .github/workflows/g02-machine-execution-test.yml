@@ -1,0 +1,31 @@
+name: G02 Machine Execution Test
+
+on:
+  push:
+    branches:
+      - g02-machine-execution-test-20260929
+  workflow_dispatch:
+
+jobs:
+  linux:
+    name: Linux self-hosted sentinel
+    runs-on: [self-hosted, linux, x64]
+    steps:
+      - name: Linux sentinel
+        run: |
+          echo "G02_LINUX_SENTINEL_EXECUTED=true"
+          echo "RUNNER_NAME=$RUNNER_NAME"
+          echo "RUNNER_ID=$RUNNER_ID"
+          uname -a
+
+  windows:
+    name: Windows self-hosted sentinel
+    runs-on: [self-hosted, windows, x64]
+    steps:
+      - name: Windows sentinel
+        shell: pwsh
+        run: |
+          Write-Output "G02_WINDOWS_SENTINEL_EXECUTED=true"
+          Write-Output "RUNNER_NAME=$env:RUNNER_NAME"
+          Write-Output "RUNNER_ID=$env:RUNNER_ID"
+          Get-ComputerInfo | Select-Object WindowsProductName, WindowsVersion
