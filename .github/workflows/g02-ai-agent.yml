@@ -1,0 +1,60 @@
+name: G02 AI Agent — Machine Listening & Execution Evidence
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [g02-ai-agent-20260929]
+
+permissions:
+  contents: read
+  actions: read
+  checks: read
+
+jobs:
+  g02:
+    name: G02 Runner Agent
+    runs-on: [self-hosted, lingo-g02]
+    timeout-minutes: 15
+    steps:
+      - name: G02 sentinel
+        shell: python
+        run: |
+          import os
+          import platform
+
+          print("G02_SENTINEL_EXECUTED=true")
+          print(f"RUNNER_NAME={os.environ.get('RUNNER_NAME', '')}")
+          print(f"RUNNER_ID={os.environ.get('RUNNER_ID', '')}")
+          print(f"RUNNER_OS={os.environ.get('RUNNER_OS', '')}")
+          print(f"RUNNER_ARCH={os.environ.get('RUNNER_ARCH', '')}")
+          print(f"HOST_OS={platform.system()}")
+          print(f"RUN_ID={os.environ.get('GITHUB_RUN_ID', '')}")
+          print(f"JOB_ID={os.environ.get('GITHUB_JOB', '')}")
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Execute G02 agent
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        shell: python
+        run: |
+          import subprocess
+          import sys
+
+          subprocess.run(
+              [sys.executable, ".github/lingo-g02-agent/g02_agent.py"],
+              check=True,
+          )
+
+      - name: G02 completion sentinel
+        shell: python
+        run: |
+          import os
+
+          print("G02_COMPLETION_SENTINEL_EXECUTED=true")
+          print(f"RUNNER_NAME={os.environ.get('RUNNER_NAME', '')}")
+          print(f"RUNNER_ID={os.environ.get('RUNNER_ID', '')}")
+          print(f"RUNNER_OS={os.environ.get('RUNNER_OS', '')}")
+          print(f"RUN_ID={os.environ.get('GITHUB_RUN_ID', '')}")
+          print(f"JOB_ID={os.environ.get('GITHUB_JOB', '')}")
