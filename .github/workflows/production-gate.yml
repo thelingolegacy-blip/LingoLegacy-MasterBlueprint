@@ -13,15 +13,30 @@ permissions:
   contents: read
 
 jobs:
-  evidence:
-    runs-on: ubuntu-22.04
+  g06-execution-evidence:
+    name: G06 Execution Evidence
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
     env:
       ACTIONS_RUNNER_DEBUG: 'true'
       ACTIONS_STEP_DEBUG: 'true'
+      G06_DEPLOYMENT_URL: 'https://lingo-legacy-studio-hub-nhda3b.v2.appdeploy.ai/'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Validate studio artifact
+
+      - name: Prove runner assignment
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${RUNNER_NAME:-}"
+          test -n "${RUNNER_OS:-}"
+          echo "RUNNER_NAME=${RUNNER_NAME}"
+          echo "RUNNER_OS=${RUNNER_OS}"
+          echo "RUNNER_ARCH=${RUNNER_ARCH}"
+          echo "G06_RUNNER_ASSIGNMENT=PROVEN"
+
+      - name: Validate gate artifact
         shell: bash
         run: |
           set -euo pipefail
@@ -30,18 +45,49 @@ jobs:
           grep -q 'EVIDENCE' studio-worlds/README.md
           grep -q 'PROMOTION' studio-worlds/README.md
           echo 'STUDIO_WORLD_ARTIFACT=VALID'
-      - name: Emit gate evidence
+
+      - name: Verify deployed production endpoint
         shell: bash
         run: |
-          echo 'EVIDENCE=VERIFIED_FOR_ARTIFACT_VALIDATION'
-          echo 'RUNNER_GATE=PASS'
-          echo 'DEPLOYMENT_MUTEX=LOCKED'
-          echo 'ACTIVATION=BLOCKED_UNTIL_PRODUCTION_ELIGIBILITY'
-          echo 'LKG=PROTECTED'
+          set -euo pipefail
+          mkdir -p g06-evidence
+          curl --fail --show-error --silent --location --max-time 30 \
+            --dump-header g06-evidence/headers.txt \
+            --output g06-evidence/body.html \
+            "${G06_DEPLOYMENT_URL}"
+          test -s g06-evidence/body.html
+          grep -Eiq '<!doctype html|<html' g06-evidence/body.html
+          echo "G06_DEPLOYMENT_ENDPOINT=${G06_DEPLOYMENT_URL}"
+          echo 'G06_DEPLOYMENT_ENDPOINT_REACHABLE=TRUE'
+
+      - name: Record G06 execution evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > g06-evidence/manifest.txt <<EOF
+          G06_RUNNER_ASSIGNMENT=PROVEN
+          G06_STEPS_EXECUTED=PROVEN
+          G06_LOGS_GENERATED=PROVEN_BY_GITHUB_ACTIONS
+          G06_DEPLOYMENT_ENDPOINT_REACHABLE=TRUE
+          G06_DEPLOYMENT_CORRELATION=PARTIAL
+          G06_DEPLOYMENT_ACTION=NOT_PROVEN_BY_THIS_WORKFLOW
+          G06_SUCCESSFUL_DEPLOYMENT=NOT_PROVEN_BY_THIS_WORKFLOW
+          G06_ACCEPTANCE=BLOCKED
+          EOF
+          cat g06-evidence/manifest.txt
+
+      - name: Upload G06 evidence artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: g06-execution-evidence
+          path: g06-evidence/
 
   promotion:
-    needs: evidence
+    needs: g06-execution-evidence
     if: ${{ false }}
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     steps:
-      - run: echo 'Promotion requires a separately verified production authorization path.'
+      - name: Promotion remains fail-closed
+        run: |
+          echo 'G06 acceptance is blocked until qualifying deployment-action evidence is independently verified.'
+          exit 1
