@@ -1,0 +1,65 @@
+name: G02 Control Plane Diagnostic
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [g02-runner-recovery-20260929]
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  control-plane:
+    name: G02 Control Plane Diagnostic
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Prove workflow execution path
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "CONTROL_PLANE_DIAGNOSTIC=true"
+          echo "RUN_ID=${GITHUB_RUN_ID}"
+          echo "RUN_ATTEMPT=${GITHUB_RUN_ATTEMPT}"
+          echo "JOB=${GITHUB_JOB}"
+          echo "RUNNER_NAME=${RUNNER_NAME}"
+          echo "RUNNER_ID=${RUNNER_ID}"
+          echo "RUNNER_OS=${RUNNER_OS}"
+          echo "RUNNER_ARCH=${RUNNER_ARCH}"
+          date -u
+
+      - name: Query current run jobs
+        shell: python
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          GH_RUN_ID: ${{ github.run_id }}
+        run: |
+          import json, os, urllib.request
+          url = f"https://api.github.com/repos/{os.environ['GH_REPO']}/actions/runs/{os.environ['GH_RUN_ID']}/jobs"
+          req = urllib.request.Request(
+              url,
+              headers={
+                  "Accept": "application/vnd.github+json",
+                  "Authorization": f"Bearer {os.environ['GH_TOKEN']}",
+                  "X-GitHub-Api-Version": "2022-11-28",
+              },
+          )
+          with urllib.request.urlopen(req, timeout=20) as response:
+              data = json.load(response)
+          print(json.dumps({
+              "run_id": os.environ["GH_RUN_ID"],
+              "job_count": len(data.get("jobs", [])),
+              "jobs": [
+                  {
+                      "id": j.get("id"),
+                      "name": j.get("name"),
+                      "status": j.get("status"),
+                      "conclusion": j.get("conclusion"),
+                      "runner_id": j.get("runner_id"),
+                      "runner_name": j.get("runner_name"),
+                  }
+                  for j in data.get("jobs", [])
+              ],
+          }, indent=2))
