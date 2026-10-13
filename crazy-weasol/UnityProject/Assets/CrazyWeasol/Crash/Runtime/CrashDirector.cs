@@ -1,0 +1,2 @@
+using UnityEngine;
+namespace CrazyWeasol.Crash { public sealed class CrashDirector:MonoBehaviour { [SerializeField] float startingStability=100f; public CoreState State{get;private set;} void Awake(){State=new CoreState(startingStability);} public void ApplyInstability(float amount){State=new CoreState(State.stability-Mathf.Max(0f,amount)); if(State.IsFractured) Debug.Log("[CrazyWeasol] Gravity Fracture triggered.");} } }

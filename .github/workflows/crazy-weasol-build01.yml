@@ -1,0 +1,43 @@
+name: Crazy Weasol — Build-01 Evidence Pipeline
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'crazy-weasol/**'
+      - '.github/workflows/crazy-weasol-build01.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  source-integrity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify Build-01 contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f crazy-weasol/README.md
+          test -f crazy-weasol/Documentation/FINAL_ACCEPTANCE.md
+          test -f crazy-weasol/Documentation/RELEASE_GATES.md
+          test -f crazy-weasol/Documentation/BUILD_EVIDENCE.md
+          test -f crazy-weasol/Documentation/CONTENT_REGISTRY.md
+          sha256sum crazy-weasol/Documentation/*.md
+
+  artifact-manifest:
+    needs: source-integrity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate source manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          find crazy-weasol -type f -print0 | sort -z | xargs -0 sha256sum > crazy-weasol/Documentation/source-manifest.sha256
+          cat crazy-weasol/Documentation/source-manifest.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: crazy-weasol-build01-source-manifest
+          path: crazy-weasol/Documentation/source-manifest.sha256
